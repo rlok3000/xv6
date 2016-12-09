@@ -12,6 +12,7 @@ struct {
   struct proc proc[NPROC];
 } ptable;
 
+
 static struct proc *initproc;
 
 int nextpid = 1;
@@ -468,17 +469,19 @@ procdump(void)
   }
 }
 
-void signal_deliver(int signum)
+void signal_deliver(int signum, siginfo_t siginfo)
 {
 	uint old_eip = proc->tf->eip;
-
+	cprintf("size of siginfo: %d\n", sizeof(siginfo));
 	*((uint*)(proc->tf->esp - 4))  = (uint) old_eip;		// real return address
 	*((uint*)(proc->tf->esp - 8))  = proc->tf->eax;			// eax
 	*((uint*)(proc->tf->esp - 12)) = proc->tf->ecx;			// ecx
-	*((uint*)(proc->tf->esp - 16)) = proc->tf->edx;			// edx
-	*((uint*)(proc->tf->esp - 20)) = (uint) signum;			// signal number
-	*((uint*)(proc->tf->esp - 24)) = proc->restorer_addr;	// address of restorer
-	proc->tf->esp -= 24;
+	*((uint*)(proc->tf->esp - 16)) = proc->tf->edx;
+	*((uint*)(proc->tf->esp - 20)) = siginfo.addr;
+	*((uint*)(proc->tf->esp - 24)) = siginfo.type;
+	*((uint*)(proc->tf->esp - 28)) = (uint)signum;
+	*((uint*)(proc->tf->esp - 32)) = proc->restorer_addr;	// address of restorer
+	proc->tf->esp -= 32;
 	proc->tf->eip = (uint) proc->handlers[signum];
 }
 
@@ -492,4 +495,24 @@ sighandler_t signal_register_handler(int signum, sighandler_t handler)
 	proc->handlers[signum] = handler;
 
 	return previous;
+}
+
+int mprotect(void* addr, int len, int prot) {
+	
+	pte_t* pgaddr = (pte_t*)addr;
+        if(prot == PROT_NONE) {
+                cprintf("prot none: addr value: %d\n", *pgaddr);
+                *pgaddr = *pgaddr >> 3;
+                *pgaddr = *pgaddr << 3;
+                *pgaddr = *pgaddr | 1;
+                cprintf("set prot level: addr value: %d\n", *pgaddr);
+        } else {
+                cprintf("not prot none: addr value: %d\n", *pgaddr);
+                cprintf("prot level: %d\n", prot);
+                *pgaddr = *pgaddr >> 3;
+                *pgaddr = *pgaddr << 3;
+                *pgaddr |= prot;
+                cprintf("set prot level: addr value: %d\n", *pgaddr);
+        }
+	return 0;	 	
 }

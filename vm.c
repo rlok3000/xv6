@@ -377,6 +377,11 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
   return 0;
 }
 
+pte_t*
+getpte(pde_t *pgdir, const void *va, int alloc) {
+	return walkpgdir(pgdir, va, alloc);
+}
+
 //PAGEBREAK!
 // Blank page.
 //PAGEBREAK!

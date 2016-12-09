@@ -179,5 +179,8 @@ void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
 
+int mprotect(void*, int, int);
+
+pde_t* getpte(pde_t *pgdir, const void *va, int alloc);
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

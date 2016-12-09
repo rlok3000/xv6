@@ -51,6 +51,8 @@ struct context {
   uint eip;
 };
 
+
+
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
 // Per-process state
@@ -72,11 +74,13 @@ struct proc {
   uint restorer_addr;          // Signal restorer
 };
 
+
+
 // Process memory is laid out contiguously, low addresses first:
 //   text
 //   original data and bss
 //   fixed-size stack
 //   expandable heap
 
-void signal_deliver(int signum);
+void signal_deliver(int signum, siginfo_t siginfo);
 sighandler_t signal_register_handler(int signum, sighandler_t handler);
