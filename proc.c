@@ -472,14 +472,14 @@ procdump(void)
 void signal_deliver(int signum, siginfo_t siginfo)
 {
 	uint old_eip = proc->tf->eip;
-	cprintf("size of siginfo: %d\n", sizeof(siginfo));
+	cprintf("\nenter signal deliver\n");
 	*((uint*)(proc->tf->esp - 4))  = (uint) old_eip;		// real return address
 	*((uint*)(proc->tf->esp - 8))  = proc->tf->eax;			// eax
 	*((uint*)(proc->tf->esp - 12)) = proc->tf->ecx;			// ecx
 	*((uint*)(proc->tf->esp - 16)) = proc->tf->edx;
 	*((uint*)(proc->tf->esp - 20)) = siginfo.addr;
 	*((uint*)(proc->tf->esp - 24)) = siginfo.type;
-	*((uint*)(proc->tf->esp - 28)) = (uint)signum;
+	*((uint*)(proc->tf->esp - 28)) = signum;
 	*((uint*)(proc->tf->esp - 32)) = proc->restorer_addr;	// address of restorer
 	proc->tf->esp -= 32;
 	proc->tf->eip = (uint) proc->handlers[signum];
@@ -499,6 +499,7 @@ sighandler_t signal_register_handler(int signum, sighandler_t handler)
 
 int mprotect(void* addr, int len, int prot) {
 	
+	cprintf("\nenter mprotect\n");
 	pte_t* pgaddr = (pte_t*)addr;
         if(prot == PROT_NONE) {
                 cprintf("prot none: addr value: %d\n", *pgaddr);

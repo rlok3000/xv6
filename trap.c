@@ -81,20 +81,12 @@ trap(struct trapframe *tf)
    case T_DIVIDE:
       if (proc->handlers[SIGFPE] != (sighandler_t) -1) {
 	siginfo_t siginfo;
-	signal_deliver(SIGFPE,siginfo);
+	signal_deliver(SIGFPE, siginfo);
         break;
       }
   case T_PGFLT:
     if (proc->handlers[SIGSEGV] != (sighandler_t) -1) {
-	/*void * va = (void *)(tf->eax);
-	pte_t * addr;
-	pde_t *pde;
-  	pte_t *pgtab;
-
-  	pde = &proc->pgdir[PDX(va)];
-    	pgtab = (pte_t*)p2v(PTE_ADDR(*pde));
-  
-  	addr = &pgtab[PTX(va)];*/
+	cprintf("\ntrap enter\n");
 	cprintf("eax %d\n",tf->eax);
 	cprintf("eip %d\n",tf->eip);
 	pte_t* addr = getpte(proc->pgdir,(void*)tf->eax,0);
@@ -104,9 +96,8 @@ trap(struct trapframe *tf)
 		cprintf("user and present flag are set\n");
 		if(*addr & PTE_W) {
 			cprintf("write flag is set\n");
-			type = PROT_WRITE;	
-		}
-		else {
+			type = PROT_WRITE;
+		}else{
 			cprintf("write flag is not set\n");
 			type = PROT_READ;
 		}

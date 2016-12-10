@@ -5,6 +5,7 @@ int *p;
 
 void handler(int signum, siginfo_t info)
 {
+	printf(1, "\n");
 	printf(1,"Handler called, error address is 0x%x\n", info.addr);
 	printf(1, "signum is %d\n", signum);
 	printf(1, "info type is %d\n", info.type);
@@ -26,6 +27,7 @@ int main(void)
 	printf(1, "p pure: %d\n", p);
 	printf(1, "p void ptr: %d\n", (void *)p);
 	printf(1, "p deref: %d\n", *p);
+	printf(1, "\n");
  	mprotect((void *)p, sizeof(int), PROT_READ);
 	*p=100;
  	printf(1, "COMPLETED: value is %d, expecting 100!\n", *p);
