@@ -180,6 +180,7 @@ int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
 
 int mprotect(void*, int, int);
+int cowfork();
 
 pde_t* getpte(pde_t *pgdir, const void *va, int alloc);
 // number of elements in fixed-size array

@@ -58,6 +58,10 @@ sys_mprotect (void) {
 	return 0;
 }
 
+int sys_cowfork() {
+	return cowfork();
+}
+
 int
 sys_fork(void)
 {
