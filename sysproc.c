@@ -37,7 +37,7 @@ sys_mprotect (void) {
 	
 	cprintf("addr after ptb: %d\n", addr);*/
 	
-	void* addr = (void*)getpte(proc->pgdir,(void*)foo,0);
+	void* addr = (void *)foo;
 	//pte_t* test = getpte(proc->pgdir,(pte_t*)ss,0);
 	//cprintf("aaaaaaaaaaaaaa %d\n",*test);	
 	mprotect(addr,len,prot);

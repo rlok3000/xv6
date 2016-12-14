@@ -102,7 +102,7 @@ extern int sys_halt(void);
 extern int sys_signal_register(void);
 extern int sys_signal_restorer(void);
 extern int sys_mprotect(void);
-extern_int sys_cowfork(void);
+extern int sys_cowfork(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,

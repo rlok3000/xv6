@@ -497,8 +497,8 @@ sighandler_t signal_register_handler(int signum, sighandler_t handler)
 	return previous;
 }
 
-int mprotect(void* addr, int len, int prot) {
-	cprintf("\nenter mprotect\n");
+int mprotect_alias(void* addr, int len, int prot) {
+	cprintf("\nenter mprotect-alias\n");
 	pte_t* pgaddr = (pte_t*)addr;
 	//int i;
 	//for(i = 0; i < len; i++) {
@@ -518,7 +518,27 @@ int mprotect(void* addr, int len, int prot) {
 		cprintf("set prot level: addr value: %d\n", *pgaddr);
 	}
 	//}
-	return 0;	 	
+	return 0;
+}
+
+int mprotect(void* addr, int len, int prot) {
+	cprintf("\nenter mprotect\n");
+	pte_t* pgaddr;
+	cprintf("len: %d\n", len);
+	cprintf("addr: %d\n", addr);
+	len = len / PGSIZE;
+	if(len % 1 != 1)
+		len++;
+	cprintf("num pages: %d\n", len);
+	unsigned int i;
+	//int i;
+	//for(i = 0; i < len; i++) {
+	//pgaddr += 1;
+	for(i = 0; i < len; i += 1){
+		pgaddr = getpte(proc->pgdir, (void*)(addr + (i * PGSIZE)), 0);
+		mprotect_alias(pgaddr, 0, prot);
+	}
+	return 0;
 }
 
 int cowfork() {
@@ -556,7 +576,8 @@ int cowfork() {
 	np->state = RUNNABLE;
 	release(&ptable.lock);
 
-	return pid;		
+	return pid;
+	return 0;	
 }
 
 pde_t* copypgdir(*pde_t pgdir, uint sz) {
