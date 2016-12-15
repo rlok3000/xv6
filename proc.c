@@ -550,10 +550,10 @@ int cowfork() {
 
 	// Copy process state from p.
 	np->pgdir = proc->pgdir;
-	int i = 0;
-	for(;i<NPDENTRIES;i++) {
-		pde_t* temp = np->pgdir+i;
-		mprotect(temp,PG_SIZE,PROT_READ);
+	int j = 0;
+	for(;j<NPDENTRIES;j++) {
+		pde_t* temp = np->pgdir+j;
+		mprotect(temp,PGSIZE,PROT_READ);
 	} 
 	np->sz = proc->sz;
 	np->parent = proc;
@@ -580,33 +580,33 @@ int cowfork() {
 	return 0;	
 }
 
-pde_t* copypgdir(*pde_t pgdir, uint sz) {
+pde_t* copypgdir(pde_t* pgdir, uint sz) {
 	pde_t *d;
-	pde_t *cpy;
 	pte_t *pte;
 	uint pa, i, flags;
-	char *mem;
+	//char *mem;
 
 	if((d = setupkvm()) == 0)
 		return 0;
-	cpy = d;
 	for(i = 0; i < sz; i += PGSIZE){	
-		if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
+		if((pte = getpte(pgdir, (void *) i, 0)) == 0)
 			panic("copyuvm: pte should exist");
 		if(!(*pte & PTE_P))
 			panic("copyuvm: page not present");
 		pa = PTE_ADDR(*pte);
 		flags = PTE_FLAGS(*pte);
-		mprotect(pte, sizeof(),); 	
+		*pte = *pte >> 3;
+                *pte = *pte << 3;
+                *pte = *pte | PROT_READ;
 		/*if((mem = kalloc()) == 0)
 			goto bad;
-		memmove(mem, (char*)p2v(pa), PGSIZE);
-		if(mappages(d, (void*)i, PGSIZE, v2p(mem), flags) < 0)
-			goto bad;*/
+		memmove(mem, (char*)p2v(pa), PGSIZE);*/
+		if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
+			goto bad;
 	}
-	return d;
 
-	bad:
-		freevm(d);
-		return 0;
+	return d;
+bad:
+	freevm(d);
+	return 0;
 }
