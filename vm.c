@@ -7,6 +7,7 @@
 #include "proc.h"
 #include "elf.h"
 
+char romap[0xE0000];
 extern char data[];  // defined by kernel.ld
 pde_t *kpgdir;  // for use in scheduler()
 struct segdesc gdt[NSEGS];
@@ -189,6 +190,9 @@ inituvm(pde_t *pgdir, char *init, uint sz)
   memset(mem, 0, PGSIZE);
   mappages(pgdir, 0, PGSIZE, v2p(mem), PTE_W|PTE_U);
   memmove(mem, init, sz);
+
+  romap[v2p(mem) >> PGSHIFT]++;
+ 
 }
 
 // Load a program segment into pgdir.  addr must be page-aligned
@@ -238,6 +242,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
     }
     memset(mem, 0, PGSIZE);
     mappages(pgdir, (char*)a, PGSIZE, v2p(mem), PTE_W|PTE_U);
+    romap[v2p(mem) >> PGSHIFT]++;
   }
   return newsz;
 }
@@ -264,8 +269,10 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       pa = PTE_ADDR(*pte);
       if(pa == 0)
         panic("kfree");
+      if(--romap[pa >> PGSHIFT] == 0) {
       char *v = p2v(pa);
       kfree(v);
+	}
       *pte = 0;
     }
   }
@@ -321,18 +328,24 @@ copyuvm(pde_t *pgdir, uint sz)
       panic("copyuvm: pte should exist");
     if(!(*pte & PTE_P))
       panic("copyuvm: page not present");
+   *pte = *pte >> 3;
+                *pte = *pte << 3;
+                *pte = *pte | PROT_READ; 
     pa = PTE_ADDR(*pte);
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
       goto bad;
     memmove(mem, (char*)p2v(pa), PGSIZE);
-    if(mappages(d, (void*)i, PGSIZE, v2p(mem), flags) < 0)
+    if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
       goto bad;
+    romap[pa >> PGSHIFT]++;
   }
+  lcr3(v2p(pgdir));
   return d;
 
 bad:
   freevm(d);
+  lcr3(v2p(pgdir));
   return 0;
 }
 
@@ -382,6 +395,47 @@ getpte(pde_t *pgdir, const void *va, int alloc) {
 	return walkpgdir(pgdir, va, alloc);
 }
 
+pde_t* copypgdir(pde_t* pgdir, uint sz) {
+	pde_t *d;
+	pte_t *pte;
+	uint pa, i, flags;
+
+	if((d = setupkvm()) == 0)
+		return 0;
+	for(i = 0; i < sz; i += PGSIZE){	
+		if((pte = getpte(pgdir, (void *) i, 0)) == 0)
+			panic("copyuvm: pte should exist");
+		if(!(*pte & PTE_P))
+			panic("copyuvm: page not present");
+		pa = PTE_ADDR(*pte);
+		flags = PTE_FLAGS(*pte);
+		*pte = *pte >> 3;
+                *pte = *pte << 3;
+                *pte = *pte | PROT_READ;
+		if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
+			goto bad;
+	}
+
+	return d;
+bad:
+	freevm(d);
+	return 0;
+}
+
+int
+isRef(void* addr) {
+if(romap[(unsigned int)addr >> PGSHIFT] == 0) {
+                        return 1;
+			}
+                        else {
+			return 0;                               
+                        }
+}
+
+void
+deltRef(uint addr, int num) {
+	romap[v2p((void*)addr) >> PGSHIFT]++;
+}
 //PAGEBREAK!
 // Blank page.
 //PAGEBREAK!

@@ -7,6 +7,7 @@
 #include "proc.h"
 #include "spinlock.h"
 
+
 struct {
 	struct spinlock lock;
 	struct proc proc[NPROC];
@@ -549,12 +550,12 @@ int cowfork() {
 		return -1;
 
 	// Copy process state from p.
-	np->pgdir = proc->pgdir;
-	int j = 0;
-	for(;j<NPDENTRIES;j++) {
-		pde_t* temp = np->pgdir+j;
-		mprotect(temp,PGSIZE,PROT_READ);
-	} 
+	if((np->pgdir = copyuvm(proc->pgdir, proc->sz)) == 0){
+                kfree(np->kstack);
+                np->kstack = 0;
+                np->state = UNUSED;
+                return -1;
+        } 
 	np->sz = proc->sz;
 	np->parent = proc;
 	*np->tf = *proc->tf;
@@ -580,33 +581,6 @@ int cowfork() {
 	return 0;	
 }
 
-pde_t* copypgdir(pde_t* pgdir, uint sz) {
-	pde_t *d;
-	pte_t *pte;
-	uint pa, i, flags;
-	//char *mem;
 
-	if((d = setupkvm()) == 0)
-		return 0;
-	for(i = 0; i < sz; i += PGSIZE){	
-		if((pte = getpte(pgdir, (void *) i, 0)) == 0)
-			panic("copyuvm: pte should exist");
-		if(!(*pte & PTE_P))
-			panic("copyuvm: page not present");
-		pa = PTE_ADDR(*pte);
-		flags = PTE_FLAGS(*pte);
-		*pte = *pte >> 3;
-                *pte = *pte << 3;
-                *pte = *pte | PROT_READ;
-		/*if((mem = kalloc()) == 0)
-			goto bad;
-		memmove(mem, (char*)p2v(pa), PGSIZE);*/
-		if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
-			goto bad;
-	}
 
-	return d;
-bad:
-	freevm(d);
-	return 0;
-}
+

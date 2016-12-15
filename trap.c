@@ -90,6 +90,7 @@ trap(struct trapframe *tf)
 	cprintf("eax %d\n",tf->eax);
 	cprintf("eip %d\n",tf->eip);
 	pte_t* addr = getpte(proc->pgdir,(void*)tf->eax,0);
+	char* page;
 
 	uint type;
 	if(*addr & PTE_U && *addr & PTE_P) {
@@ -99,7 +100,15 @@ trap(struct trapframe *tf)
 			type = PROT_WRITE;
 		}else{
 			cprintf("write flag is not set\n");
-			type = PROT_READ;
+			if(isRef((void*)addr)) {
+				type = PROT_READ;
+     			}
+			else {
+				page = kalloc();
+				memmove(page, (char*)v2p((void *)tf->eax), PGSIZE);
+			        mprotect((void*)tf->eax, PGSIZE, PROT_WRITE);
+				deltRef(tf->eax, -1);
+			}
 		}
 	}		
 	else {
