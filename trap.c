@@ -101,14 +101,24 @@ trap(struct trapframe *tf)
 		}else{
 			cprintf("write flag is not set\n");
 			if(isRef((void*)addr)) {
+				cprintf("isRef succeeds\n");
 				type = PROT_READ;
      			}
 			else {
-				page = kalloc();
-				memmove(page, (char*)v2p((void *)tf->eax), PGSIZE);
-			        mprotect((void*)tf->eax, PGSIZE, PROT_WRITE);
+				cprintf("isRef false\n");
+				if((page = kalloc()) == 0) {
+					proc->killed=1;
+					return;
+				}
+				memmove(page, (char*)p2v(PTE_ADDR(*addr)), PGSIZE);
+			        *addr = v2p(page);
+				*addr = *addr | PTE_W | PTE_U | PTE_P;
+				//mprotect((void*)tf->eax, PGSIZE, PROT_WRITE);
+				
 				deltRef(tf->eax, -1);
+				deltRef(v2p(page),1);
 			}
+			lcr3(v2p(proc->pgdir));
 		}
 	}		
 	else {
