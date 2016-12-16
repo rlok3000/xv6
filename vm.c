@@ -404,7 +404,6 @@ pde_t* cowcopyuvm(pde_t* pgdir, uint sz) {
 	pde_t *d;
 	pte_t *pte;
 	uint pa, i, flags;
-	char* mem;
 	static int init =0;
 
 	if(init == 0) {
@@ -425,45 +424,21 @@ pde_t* cowcopyuvm(pde_t* pgdir, uint sz) {
 
 		pa = PTE_ADDR(*pte);
 		flags = PTE_FLAGS(*pte);
-		if(*pte & PTE_U)
-		{
-			*pte = *pte & 0xFFFFFFFD;
+		*pte = *pte & 0xFFFFFFFD;
 
-			if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
-				goto bad;
-
-			acquire(&romapstruct.lock);
-			romapstruct.romap[pa >> 12]++;
-			release(&romapstruct.lock);
-
-			deltRef(pa, 1);
-		}
-		else
-		{
-			if((mem = kalloc()) == 0)
-				goto bad;
-
-			memmove(mem, (char*)p2v(pa), PGSIZE);
-
-			if(mappages(d, (void*)i, PGSIZE, v2p(mem), flags) < 0)
-				goto bad;
-		}
-		//*pte = *pte & ~PTE_W;
-		/*pte = *pte >> 3;
-		 *pte = *pte << 3;
-		 *pte = *pte | PROT_WRITE;*/
-		/*pa = PTE_ADDR(*pte);
-		  flags = PTE_FLAGS(*pte);
-
-		  if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
-		  goto bad;*/
+		if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
+			goto bad;
+			
+		acquire(&romapstruct.lock);
+       		romapstruct.romap[pa >> PGSHIFT]++;
+        	release(&romapstruct.lock);		
+		
 	}
 	lcr3(v2p(pgdir));
 	return d;
 
 bad:
 	freevm(d);
-	//lcr3(v2p(pgdir));
 	return 0;
 }
 
@@ -490,38 +465,6 @@ void  pgfh(pde_t* pgdir, uint i){
 	*pte = *pte | PTE_W | PTE_U | PTE_P;	
 	deltRef(pa, 1);
 	lcr3(v2p(pgdir));
-	/*uint page, pa;
-	  pte_t *pte;
-	  char *mem;
-
-	  page = rcr2();
-
-	  pte = walkpgdir(proc->pgdir, (void *)page , 1);
-
-	  if ((*pte & 0x100) == 0)
-	  return 0;
-
-	  pa = PTE_ADDR(*pte);
-
-	  if(isRef((void*)pa)  == 0)
-	  {
-	 *pte = *pte | PTE_W;
-	 *pte = *pte & ~0x100;
-	 }
-	 else
-	 {
-	 if((mem = kalloc()) == 0)
-	 panic("handle page fault");
-	 memmove(mem , (char*)p2v(pa), PGSIZE);
-	 *pte = *pte | PTE_W;
-	 *pte = (*pte & 0xfff) | v2p(mem) | PTE_W;
-
-	 deltRef(pa, -1);
-	 }
-
-	 lcr3(v2p(proc->pgdir));
-
-	 return 0; */
 }
 int
 isRef(void* addr) {
