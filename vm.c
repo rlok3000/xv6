@@ -6,9 +6,12 @@
 #include "mmu.h"
 #include "proc.h"
 #include "elf.h"
+#include "spinlock.h"
 
-
-char romap[0xE0000];
+struct {
+	char romap[1024 * 1024];
+	struct spinlock lock;
+}romapstruct;
 extern char data[];  // defined by kernel.ld
 pde_t *kpgdir;  // for use in scheduler()
 struct segdesc gdt[NSEGS];
@@ -190,7 +193,7 @@ inituvm(pde_t *pgdir, char *init, uint sz)
 	mem = kalloc();
 	memset(mem, 0, PGSIZE);
 	mappages(pgdir, 0, PGSIZE, v2p(mem), PTE_W|PTE_U);
-	romap[v2p(mem) >> PGSHIFT]++;
+	//deltRef(v2p(mem), 1);
 	memmove(mem, init, sz);
 }
 
@@ -235,13 +238,12 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 	for(; a < newsz; a += PGSIZE){
 		mem = kalloc();
 		if(mem == 0){
-			cprintf("allocuvm out of memory\n");
 			deallocuvm(pgdir, newsz, oldsz);
 			return 0;
 		}
 		memset(mem, 0, PGSIZE);
 		mappages(pgdir, (char*)a, PGSIZE, v2p(mem), PTE_W|PTE_U);
-		romap[v2p(mem) >> PGSHIFT]++;
+		//	deltRef(v2p(mem), 1);
 	}
 	return newsz;
 }
@@ -268,11 +270,21 @@ deallocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 			pa = PTE_ADDR(*pte);
 			if(pa == 0)
 				panic("kfree");
-			if(--romap[pa >> PGSHIFT] == 0) {
-				char *v = p2v(pa);
+			char* v = p2v(pa);
+			acquire(&romapstruct.lock);
+			if(romapstruct.romap[pa >> 12] > 1)       
+				romapstruct.romap[pa >> 12]--;
+			else
+			{
 				kfree(v);
+				*pte = 0;
 			}
-			*pte = 0;
+			release(&romapstruct.lock);
+			/*if(deltRef(pa, -1) == 0) {
+			  char *v = p2v(pa);
+			  kfree(v);
+			  }
+			 *pte = 0;*/
 		}
 	}
 	return newsz;
@@ -392,12 +404,13 @@ pde_t* cowcopyuvm(pde_t* pgdir, uint sz) {
 	pde_t *d;
 	pte_t *pte;
 	uint pa, i, flags;
+	char* mem;
 	static int init =0;
 
 	if(init == 0) {
 		int count = 0;
 		for(;count < (1024*1024);count++) {
-			romap[count] = 1;
+			romapstruct.romap[count] = 1;
 		}
 		init++;
 	}
@@ -409,39 +422,118 @@ pde_t* cowcopyuvm(pde_t* pgdir, uint sz) {
 			panic("copyuvm: pte should exist");
 		if(!(*pte & PTE_P))
 			panic("copyuvm: page not present");
-		*pte = *pte >> 3;
-		*pte = *pte << 3;
-		*pte = *pte | PROT_READ;
+
 		pa = PTE_ADDR(*pte);
 		flags = PTE_FLAGS(*pte);
-		
-		if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
-			goto bad;
-		deltRef(pa, 1);
+		if(*pte & PTE_U)
+		{
+			*pte = *pte & 0xFFFFFFFD;
+
+			if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
+				goto bad;
+
+			acquire(&romapstruct.lock);
+			romapstruct.romap[pa >> 12]++;
+			release(&romapstruct.lock);
+
+			deltRef(pa, 1);
+		}
+		else
+		{
+			if((mem = kalloc()) == 0)
+				goto bad;
+
+			memmove(mem, (char*)p2v(pa), PGSIZE);
+
+			if(mappages(d, (void*)i, PGSIZE, v2p(mem), flags) < 0)
+				goto bad;
+		}
+		//*pte = *pte & ~PTE_W;
+		/*pte = *pte >> 3;
+		 *pte = *pte << 3;
+		 *pte = *pte | PROT_WRITE;*/
+		/*pa = PTE_ADDR(*pte);
+		  flags = PTE_FLAGS(*pte);
+
+		  if(mappages(d, (void*)i, PGSIZE, pa, flags) < 0)
+		  goto bad;*/
 	}
 	lcr3(v2p(pgdir));
 	return d;
 
 bad:
 	freevm(d);
-	lcr3(v2p(pgdir));
+	//lcr3(v2p(pgdir));
 	return 0;
 }
 
+void  pgfh(pde_t* pgdir, uint i){
+	char *temp;
+	uint pa;
+	pte_t *pte;
+
+	if((pte = walkpgdir(pgdir, (void *) i, 0)) == 0)
+		panic("allocpage: walkpgdir");
+	if(!(*pte & PTE_P))
+		panic("allocpage: PTE_P"); 
+
+	pa = PTE_ADDR(*pte);
+
+	if((temp = kalloc()) == 0)
+		panic("allocpage: kalloc");
+
+	memmove(temp, (char*)p2v(pa), PGSIZE);
+	*pte = v2p(temp);
+	//
+	//mprotect((void*)pte,PGSIZE, PROT_READ | PROT_WRITE);
+
+	*pte = *pte | PTE_W | PTE_U | PTE_P;	
+	deltRef(pa, 1);
+	lcr3(v2p(pgdir));
+	/*uint page, pa;
+	  pte_t *pte;
+	  char *mem;
+
+	  page = rcr2();
+
+	  pte = walkpgdir(proc->pgdir, (void *)page , 1);
+
+	  if ((*pte & 0x100) == 0)
+	  return 0;
+
+	  pa = PTE_ADDR(*pte);
+
+	  if(isRef((void*)pa)  == 0)
+	  {
+	 *pte = *pte | PTE_W;
+	 *pte = *pte & ~0x100;
+	 }
+	 else
+	 {
+	 if((mem = kalloc()) == 0)
+	 panic("handle page fault");
+	 memmove(mem , (char*)p2v(pa), PGSIZE);
+	 *pte = *pte | PTE_W;
+	 *pte = (*pte & 0xfff) | v2p(mem) | PTE_W;
+
+	 deltRef(pa, -1);
+	 }
+
+	 lcr3(v2p(proc->pgdir));
+
+	 return 0; */
+}
 int
 isRef(void* addr) {
-	cprintf("count %d\n", romap[(unsigned int)addr >> PGSHIFT]);
-	if(romap[(unsigned int)addr >> PGSHIFT] > 1) {
-		return 1;
-	}
-	else {
-		return 0;                               
-	}
+	return romapstruct.romap[(unsigned int)addr >> PGSHIFT];
 }
 
-void
+int
 deltRef(uint addr, int num) {
-	romap[v2p((pde_t*)addr) >> PGSHIFT]+=num;
+	acquire(&romapstruct.lock);
+	romapstruct.romap[v2p((pde_t*) addr) >> PGSHIFT]+=num;
+	release(&romapstruct.lock);
+	return romapstruct.romap[v2p((pde_t*)addr) >> PGSHIFT];
 }
 //PAGEBREAK!
 // Blank page.

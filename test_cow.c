@@ -34,11 +34,11 @@ int main(void)
     t2 = 0;
     for(i = 0; i < NUM_FORKS; i++)
     {
-	printf(1, "%d\n", i);
         t1 = uptime();
         if(cowfork() == 0)
         {
             exit();
+		
         }
         else
         {

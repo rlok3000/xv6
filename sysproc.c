@@ -16,45 +16,15 @@ sys_mprotect (void) {
         if(argint(0, &foo) < 0) {
                 return -1;
 	}
-	cprintf("addr pure enter: %d\n", foo);
 	if(argint(1, &len) < 0) {
 		return -1;
 	}
-	cprintf("len enter: %d\n",len);
 	if(argint(2, &prot) < 0) {
 		return -1;
 	}
-	cprintf("prot enter: %d\n",prot);
-	/*void *va = (void*)foo; 
-	pte_t *addr;
-	pde_t *pde;
-  	pte_t *pgtab;
-
-  	pde = &proc->pgdir[PDX(va)];
-    	pgtab = (pte_t*)p2v(PTE_ADDR(*pde));
-  
-  	addr = &pgtab[PTX(va)];
-	
-	cprintf("addr after ptb: %d\n", addr);*/
-	
 	void* addr = (void *)foo;
-	//pte_t* test = getpte(proc->pgdir,(pte_t*)ss,0);
-	//cprintf("aaaaaaaaaaaaaa %d\n",*test);	
 	mprotect(addr,len,prot);
-	/*	if(prot == PROT_NONE) {
-		cprintf("prot none: addr value: %d\n", *addr);
-		*addr = *addr >> 3; 
-		*addr = *addr << 3;
-		*addr = *addr | 1;
-		cprintf("set prot level: addr value: %d\n", *addr);
-	} else {
-		cprintf("not prot none: addr value: %d\n", *addr);
-		cprintf("prot level: %d\n", prot);
-		*addr = *addr >> 3;
-		*addr = *addr << 3;
-		*addr |= prot;
-		cprintf("set prot level: addr value: %d\n", *addr);
-	}*/
+	
 	return 0;
 }
 

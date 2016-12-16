@@ -181,8 +181,9 @@ void            clearpteu(pde_t *pgdir, char *uva);
 
 int mprotect(void*, int, int);
 int cowfork();
+void pgfh(pde_t*,uint);
 int isRef(void*);
-void deltRef(uint, int);
+int deltRef(uint, int);
 pde_t* cowcopyuvm(pde_t*, uint); 
 
 pde_t* getpte(pde_t *pgdir, const void *va, int alloc);

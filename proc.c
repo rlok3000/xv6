@@ -47,6 +47,7 @@ allocproc(void)
 	return 0;
 
 found:
+	
 	p->state = EMBRYO;
 	p->pid = nextpid++;
 	release(&ptable.lock);
@@ -473,7 +474,6 @@ procdump(void)
 void signal_deliver(int signum, siginfo_t siginfo)
 {
 	uint old_eip = proc->tf->eip;
-	cprintf("\nenter signal deliver\n");
 	*((uint*)(proc->tf->esp - 4))  = (uint) old_eip;		// real return address
 	*((uint*)(proc->tf->esp - 8))  = proc->tf->eax;			// eax
 	*((uint*)(proc->tf->esp - 12)) = proc->tf->ecx;			// ecx
@@ -499,38 +499,28 @@ sighandler_t signal_register_handler(int signum, sighandler_t handler)
 }
 
 int mprotect_alias(void* addr, int len, int prot) {
-	cprintf("\nenter mprotect-alias\n");
 	pte_t* pgaddr = (pte_t*)addr;
 	//int i;
 	//for(i = 0; i < len; i++) {
 	//pgaddr += 1;
 	if(prot == PROT_NONE) {
-		cprintf("prot none: addr value: %d\n", *pgaddr);
 		*pgaddr = *pgaddr >> 3;
 		*pgaddr = *pgaddr << 3;
 		*pgaddr = *pgaddr | 1;
-		cprintf("set prot level: addr value: %d\n", *pgaddr);
 	} else {
-		cprintf("not prot none: addr value: %d\n", *pgaddr);
-		cprintf("prot level: %d\n", prot);
 		*pgaddr = *pgaddr >> 3;
 		*pgaddr = *pgaddr << 3;
 		*pgaddr = *pgaddr | prot;
-		cprintf("set prot level: addr value: %d\n", *pgaddr);
 	}
 	//}
 	return 0;
 }
 
 int mprotect(void* addr, int len, int prot) {
-	cprintf("\nenter mprotect\n");
 	pte_t* pgaddr;
-	cprintf("len: %d\n", len);
-	cprintf("addr: %d\n", addr);
 	len = len / PGSIZE;
 	if(len % 1 != 1)
 		len++;
-	cprintf("num pages: %d\n", len);
 	unsigned int i;
 	//int i;
 	//for(i = 0; i < len; i++) {
@@ -546,6 +536,7 @@ int cowfork() {
 	int i, pid;
 	struct proc *np;	
 	// Allocate process.
+		
 	if((np = allocproc()) == 0)
 		return -1;
 
